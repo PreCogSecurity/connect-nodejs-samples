@@ -1,21 +1,40 @@
 {
   "name": "connect-nodejs-samples",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Samples of using Spotware Connect Open API in JavaScript and Node.js",
   "keywords": [
     "spotware",
     "connect",
-    "ctratder"
+    "ctradder"
   ],
   "author": "Spotware Services <connect@spotware.com>",
+  "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PreCogSecurity/connect-nodejs-samples.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PreCogSecurity/connect-nodejs-samples/issues"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "start": "node index"
+    "start": "node index.js",
+    "test": "node --test \"test/*.test.js\"",
+    "test:watch": "node --test --watch \"test/*.test.js\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "verify": "npm run lint && npm test"
   },
   "dependencies": {
-    "connect-js-adapter-tls": "spotware/connect-js-adapter-tls#v1.0.0",
-    "connect-js-api": "spotware/connect-js-api#v2.5.1",
-    "connect-js-encode-decode": "spotware/connect-js-encode-decode",
-    "connect-protobuf-messages": "spotware/connect-protobuf-messages#v2.0.0"
+    "connect-js-adapter-tls": "spotware/connect-js-adapter-tls#7c75dd6037f3a3cb403e121f953ea01313e55a25",
+    "connect-js-api": "spotware/connect-js-api#4c2e13cdc8305b06ba4fe2427eb0a49ff28d4682",
+    "connect-js-encode-decode": "spotware/connect-js-encode-decode#29b72952c86c94f555019f3021af14e3c5f74cab",
+    "connect-protobuf-messages": "spotware/connect-protobuf-messages#b6d79a4ee76059fd92e0dd3748e3874f047e47ab"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
   }
 }

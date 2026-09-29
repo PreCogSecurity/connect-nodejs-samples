@@ -1,16 +1,73 @@
 name: CI
+
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+
+# Least privilege. The default GITHUB_TOKEN needs nothing but read access to
+# build this project, and a leaked token in a third-party action is a real
+# incident. Add scopes deliberately if a job ever needs more.
+permissions:
+  contents: read
+
+# A new push to a PR makes the previous run irrelevant; don't burn minutes on it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  verify:
+    name: lint + test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Report every failing Node version rather than stopping at the first.
+      fail-fast: false
+      matrix:
+        node:
+          - '22.x'
+          - '24.x'
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          cache: 'npm'
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Reproducible install. `npm ci` fails loudly if package.json and
+      # package-lock.json have drifted apart, which is the point.
+      - name: Install
+        run: npm ci
+
+      # Lint gates the build. The rules live in .eslintrc.json.
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
       - run: npm ci
-      - run: npm test
+
+      # Reported, not gating. The four connect-* dependencies are pinned to
+      # 2015-2021 upstream commits that are not published to npm and cannot be
+      # upgraded, so a transitive advisory in their tree would otherwise block
+      # every pull request indefinitely. Findings still surface on every run
+      # and in the job summary.
+      - name: Audit (informational)
+        run: npm audit --audit-level=high
+        continue-on-error: true

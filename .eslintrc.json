@@ -1,1 +1,47 @@
-{"extends":"eslint:recommended"}
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "extends": "eslint:recommended",
+  "rules": {
+    "strict": ["error", "global"],
+    "no-implicit-globals": "error",
+
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-arrow-callback": "error",
+    "object-shorthand": ["error", "properties"],
+    "no-param-reassign": "error",
+    "no-shadow": "error",
+    "no-use-before-define": ["error", { "functions": false, "classes": false }],
+
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "curly": ["error", "all"],
+    "no-throw-literal": "error",
+    "no-return-await": "error",
+    "consistent-return": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+
+    "no-console": "error",
+    "no-process-exit": "error",
+
+    "indent": ["error", 4, { "SwitchCase": 1 }],
+    "quotes": ["error", "single", { "avoidEscape": true }],
+    "semi": ["error", "always"],
+    "comma-dangle": ["error", "never"],
+    "quote-props": ["error", "as-needed"],
+    "eol-last": ["error", "always"],
+    "no-trailing-spaces": "error",
+    "max-len": ["error", { "code": 100, "ignoreUrls": true, "ignoreRegExpLiterals": true }]
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "coverage/"
+  ]
+}

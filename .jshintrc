@@ -1,7 +1,0 @@
-{
-  "globalstrict": true,
-  "browser": true,
-  "browserify": true,
-  "jasmine": true,
-  "node": true
-}

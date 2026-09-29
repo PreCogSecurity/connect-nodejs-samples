@@ -1,6 +1,14 @@
+# Local environment / secrets.
+# A .env file holds plaintext credentials. It must never be committed.
+# Only .env.example (the template with no real values) is tracked.
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
+npm-debug.log*
 
 # Runtime data
 pids
@@ -23,5 +31,12 @@ coverage
 build/Release
 
 # Dependency directory
-# https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
+# https://www.npmjs.com/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
 node_modules
+
+# Editor noise
+.idea
+.vscode
+*.swp
+.DS_Store
+node_modules/

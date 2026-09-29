@@ -1,0 +1,19 @@
+# Keeps the GitHub Actions used by CI current. These are third-party code with
+# write access to the workflow, so tracking their releases matters.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # NOTE: this only tracks packages resolved from the npm registry. The four
+  # `connect-*` runtime dependencies are pinned to GitHub commits and are not
+  # published to npm, so Dependabot cannot propose upgrades for them. They are
+  # bumped by hand; see the "Dependencies" section of README.md.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

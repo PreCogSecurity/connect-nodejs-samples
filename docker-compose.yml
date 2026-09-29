@@ -1,0 +1,59 @@
+# One-command startup for the Connect Open API sample.
+#
+#   cp .env.example .env      # then fill in your four credentials
+#   docker compose up --build
+#
+# Compose reads the project `.env` file automatically for the ${...}
+# substitutions below, so nothing is baked into the image and no credential is
+# ever committed.
+#
+# Static note: this file was written and reviewed but NOT executed, because the
+# authoring environment had no Docker engine. Validate it with
+# `docker compose config` before first use.
+
+services:
+  connect-samples:
+    build:
+      context: .
+    image: connect-nodejs-samples:local
+
+    # PID 1 reaps zombies and forwards SIGTERM, so the app's graceful shutdown
+    # handler actually runs instead of the container being SIGKILLed.
+    init: true
+
+    # The process only reads from disk, so make the filesystem immutable.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Drop every capability and forbid privilege escalation. There is nothing
+    # here that needs any of them.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # No default `:-` fallback for the credentials on purpose: an empty value
+    # reaches the app, which fails closed with a message naming every missing
+    # variable. A placeholder default would look configured while being wrong.
+    environment:
+      CONNECT_CLIENT_ID: ${CONNECT_CLIENT_ID:-}
+      CONNECT_CLIENT_SECRET: ${CONNECT_CLIENT_SECRET:-}
+      CONNECT_ACCESS_TOKEN: ${CONNECT_ACCESS_TOKEN:-}
+      CONNECT_ACCOUNT_ID: ${CONNECT_ACCOUNT_ID:-}
+      CONNECT_HOST: ${CONNECT_HOST:-sandbox-tradeapi.spotware.com}
+      CONNECT_PORT: ${CONNECT_PORT:-5032}
+      CONNECT_SYMBOL: ${CONNECT_SYMBOL:-EURUSD}
+      CONNECT_PING_INTERVAL_MS: ${CONNECT_PING_INTERVAL_MS:-1000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+    # Structured JSON on stdout, one object per line.
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+    # Long enough for the app to log and close cleanly, short enough that a
+    # wedged connection does not hang a deploy.
+    stop_grace_period: 15s
