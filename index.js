@@ -1,68 +1,124 @@
 'use strict';
 
-var ProtoMessages = require('connect-protobuf-messages');
-var AdapterTLS = require('connect-js-adapter-tls');
-var EncodeDecode = require('connect-js-encode-decode');
-var Connect = require('connect-js-api');
-var ping = require('./lib/ping');
-var auth = require('./lib/auth');
-var subscribeForSpots = require('./lib/subscribe_for_spots');
-var startTime;
-var protocol = new ProtoMessages([
-    {
-        file: 'node_modules/connect-protobuf-messages/src/main/protobuf/CommonMessages.proto'
-    },
-    {
-        file: 'node_modules/connect-protobuf-messages/src/main/protobuf/OpenApiMessages.proto'
-    }
-]);
-var adapter = new AdapterTLS({
-    host: 'sandbox-tradeapi.spotware.com',
-    port: 5032
-});
-var encodeDecode = new EncodeDecode();
-var connect = new Connect({
-    adapter: adapter,
-    encodeDecode: encodeDecode,
-    protocol: protocol
-});
+const path = require('path');
+const ProtoMessages = require('connect-protobuf-messages');
+const AdapterTLS = require('connect-js-adapter-tls');
+const EncodeDecode = require('connect-js-encode-decode');
+const Connect = require('connect-js-api');
 
-ping = ping.bind(connect);
-auth = auth.bind(connect);
-subscribeForSpots = subscribeForSpots.bind(connect);
+const { loadConfig, configSecrets } = require('./lib/config');
+const { createLogger } = require('./lib/logger');
+const { createRedactor } = require('./lib/redact');
+const { createSession } = require('./lib/session');
+const { ConnectSampleError } = require('./lib/errors');
+const ping = require('./lib/ping');
+const auth = require('./lib/auth');
+const subscribeForSpots = require('./lib/subscribe_for_spots');
 
-connect.onConnect = function () {
-    startTime = Date.now();
-    ping(1000);
-    auth({
-        clientId: '7_5az7pj935owsss8kgokcco84wc8osk0g0gksow0ow4s4ocwwgc',
-        clientSecret: '49p1ynqfy7c4sw84gwoogwwsk8cocg8ow8gc8o80c0ws448cs4'
-    }).then(function (respond) {
-        console.log('auth');
-        subscribeForSpots({
-            accountId: 62002,
-            accessToken: 'test002_access_token',
-            symblolName: 'EURUSD'
-        }).then(function (respond) {
-            console.log('subscribed for spots');
-            connect.on(protocol.getPayloadTypeByName('ProtoOASpotEvent'), function (msg) {
-                console.log('Bid price: ' + msg.bidPrice + ', ask price: ' + msg.askPrice);
-            });
-        });
+/**
+ * Composition root.
+ *
+ * Everything interesting now lives in ./lib and is unit tested; this file only
+ * assembles the pieces. Credentials are *not* present here, in any form: they
+ * come from the environment (or a git-ignored .env file) via ./lib/config,
+ * which validates them and refuses to start without them.
+ */
+
+// Resolved relative to this file rather than the working directory, so the
+// sample still starts when launched from elsewhere (systemd, Docker, cron).
+const PROTO_DIR = path.join(
+    __dirname,
+    'node_modules',
+    'connect-protobuf-messages',
+    'src',
+    'main',
+    'protobuf'
+);
+
+const PROTO_FILES = [
+    path.join(PROTO_DIR, 'CommonMessages.proto'),
+    path.join(PROTO_DIR, 'OpenApiMessages.proto')
+];
+
+const buildProtocol = () => {
+    const protocol = new ProtoMessages(PROTO_FILES.map((file) => ({ file })));
+    protocol.load();
+    protocol.build();
+    return protocol;
+};
+
+const main = async () => {
+    // Bootstrap logger: usable even when configuration is invalid, and already
+    // primed with the raw secret values so that no code path can echo one.
+    const bootstrapLogger = createLogger({
+        level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
+        redactor: createRedactor([
+            process.env.CONNECT_CLIENT_SECRET,
+            process.env.CONNECT_ACCESS_TOKEN
+        ])
     });
+
+    let config;
+    try {
+        config = loadConfig();
+    } catch (error) {
+        if (error instanceof ConnectSampleError) {
+            bootstrapLogger.error('configuration rejected', { error });
+            return 1;
+        }
+        throw error;
+    }
+
+    const logger = createLogger({
+        level: config.logLevel,
+        redactor: createRedactor(configSecrets(config))
+    });
+
+    logger.info('starting', {
+        host: config.host,
+        port: config.port,
+        symbol: config.symbol,
+        accountId: config.accountId,
+        node: process.version
+    });
+
+    const connect = new Connect({
+        adapter: new AdapterTLS({ host: config.host, port: config.port }),
+        encodeDecode: new EncodeDecode(),
+        protocol: buildProtocol()
+    });
+
+    const session = createSession({
+        connect,
+        config,
+        logger,
+        ping: ping.bind(connect),
+        auth: auth.bind(connect),
+        subscribeForSpots: subscribeForSpots.bind(connect)
+    });
+
+    session.start();
+
+    const close = await session.waitForClose();
+    logger.info('session ended', close);
+
+    return close.reason === 'error' || close.reason === 'setup-failed' ? 1 : 0;
 };
 
-connect.onEnd = function () {
-    var seconds = Math.floor((Date.now() - startTime) / 1000);
-    console.log('Connection closed in ' + seconds + ' seconds');
-    clearInterval(this.pingInterval);
-};
-
-connect.onError = function (e) {
-    console.log(e);
-};
-
-protocol.load();
-protocol.build();
-
-connect.start();
+main()
+    .then((exitCode) => {
+        process.exitCode = exitCode;
+    })
+    .catch((error) => {
+        // Last-resort handler. Never let a startup crash print a stack that
+        // might contain a secret, and never leave a non-zero-less exit.
+        process.stderr.write(
+            `${JSON.stringify({
+                ts: new Date().toISOString(),
+                level: 'error',
+                msg: 'fatal',
+                error: { name: error.name, code: error.code, message: error.message }
+            })}\n`
+        );
+        process.exitCode = 1;
+    });

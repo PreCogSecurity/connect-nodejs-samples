@@ -1,0 +1,24 @@
+# Build context exclusions.
+#
+# The most important line here is `.env`: a real credentials file must never
+# be baked into an image layer, where it would survive in the registry and in
+# every `docker history` on top of it.
+.env
+.env.*
+!.env.example
+
+# Never copy a host-side install or build output into the image; the image
+# builds its own from package-lock.json.
+node_modules
+npm-debug.log*
+coverage
+.git
+.gitignore
+.github
+
+# Not needed at runtime.
+test
+.eslintrc.json
+.travis.yml
+*.md
+!README.md
